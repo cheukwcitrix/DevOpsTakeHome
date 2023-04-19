@@ -1,0 +1,41 @@
+# Author: Cheuk Wong (cheuk.wong@citrix.com)
+# This ansible playbook will install a security agent on all remote linux hosts in the "CSGSecAgentUbuntu20" invetory.
+# The agent will be installed via a script copy from the local ansible node to the remote machine with an unique token.
+#
+# Required input variables:
+#   install_path  
+#   token
+#
+# Additional requirements:
+#   "security_agent_config.conf" in the same directory as this playbook file
+#   "security_agent_installer_linux_amd64_v1.0.0.sh" in the same directory as this playbook file
+#
+# Expected output: 
+#   Security agent install script and conf file with the unique token are copied to the virtual machines
+#   Security agent installed by the script on the virtual machines
+
+- name: Install Security Agent onto remote virtual machine
+  hosts: CSGSecAgentUbuntu20
+  become: true
+  vars_files:
+   - variables.yaml
+  tasks:
+   - name: "Step 1: Create directory in the specified install path"
+     ansible.builtin.file:
+      path: "{{ install_path }}"
+      state: directory
+   - name: "Step 2: Copy security agent script to remote vm and rename file to security_agent_installer.sh"
+     ansible.builtin.copy:
+      src: security_agent_installer_linux_amd64_v1.0.0.sh 
+      dest: "{{ install_path }}security_agent_installer.sh"
+   - name: "Step 3: Copy security agent script conf to remote virtual machine"
+     ansible.builtin.copy:
+      src: security_agent_config.conf
+      dest: "{{ install_path }}security_agent_config.conf"
+   - name: "Step 4: Copy token to security_agent_config.conf"
+     ansible.builtin.lineinfile:
+      path: "{{ install_path }}security_agent_config.conf"
+      regexp: '^unique_token'
+      line: "unique_token: {{ token }}"
+   - name: "Step 5: Run the agent install script"
+     ansible.builtin.command: bash {{ install_path }}security_agent_installer.sh --config {{ install_path }}security_agent_config.conf --token {{ token }}
